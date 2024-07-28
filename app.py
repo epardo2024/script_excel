@@ -20,6 +20,7 @@ def extraer_audio(url):
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            st.info("Iniciando descarga...")
             ydl.download([url])
     except yt_dlp.utils.DownloadError as e:
         st.error(f"Error al extraer el audio: {e}")
@@ -52,24 +53,27 @@ st.title("Descargar Audio de YouTube")
 carpeta_local = './audios'
 
 # Crear la carpeta si no existe
-os.makedirs(carpeta_local, exist_ok=True)
+if not os.path.exists(carpeta_local):
+    os.makedirs(carpeta_local)
 
 # Solicitar la URL del video
 url = st.text_input("Introduce la URL del video de YouTube:")
 
 if st.button("Descargar Audio"):
     if url:
+        st.write(f"Procesando URL: {url}")
         # Extraer el audio
         extraer_audio(url)
 
         # Verificar que el archivo de audio se haya descargado
         st.write("Verificando archivos en el directorio actual...")
-        for file in os.listdir():
+        archivos = os.listdir()
+        for file in archivos:
             st.write(file)
 
         # Encontrar el archivo de audio descargado
         audio_file = None
-        for file in os.listdir():
+        for file in archivos:
             if file.endswith(".mp3"):
                 audio_file = file
                 break

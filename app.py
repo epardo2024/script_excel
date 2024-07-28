@@ -4,7 +4,6 @@ import yt_dlp
 import whisper
 import os
 import shutil
-from tqdm import tqdm
 
 # Funciones
 def extraer_audio(url, progress_bar, status_text):
@@ -45,10 +44,12 @@ def generar_transcripcion(archivo_audio, progress_bar, status_text):
     progress_bar.progress(0)
     status_text.text("Transcribiendo audio...")
 
-    result = model.transcribe(archivo_audio, verbose=True)
+    result = model.transcribe(archivo_audio)
     
-    for i, _ in enumerate(tqdm(result['segments'], desc="Transcribiendo", ncols=80)):
-        progress_bar.progress((i + 1) / len(result['segments']))
+    total_segments = len(result['segments'])
+    for i, _ in enumerate(result['segments']):
+        progress_bar.progress((i + 1) / total_segments)
+        status_text.text(f"Transcribiendo: {((i + 1) / total_segments) * 100:.2f}%")
 
     return result['text']
 

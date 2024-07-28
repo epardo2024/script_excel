@@ -4,6 +4,7 @@ import yt_dlp
 import whisper
 import os
 import shutil
+import time
 
 # Funciones
 def extraer_audio(url, progress_bar, status_text):
@@ -49,11 +50,16 @@ def generar_transcripcion(archivo_audio, progress_bar, status_text):
     result = model.transcribe(archivo_audio, verbose=True)
 
     total_segments = len(result['segments'])
+    start_time = time.time()
+
     for i, segment in enumerate(result['segments']):
         transcripcion += segment['text'] + " "
         progress = (i + 1) / total_segments
         progress_bar.progress(progress)
-        status_text.text(f"Transcribiendo: {progress*100:.2f}% completado")
+        elapsed_time = time.time() - start_time
+        estimated_total_time = elapsed_time / progress
+        remaining_time = estimated_total_time - elapsed_time
+        status_text.text(f"Transcribiendo: {progress*100:.2f}% completado. Tiempo estimado restante: {remaining_time:.2f} segundos")
 
     return transcripcion
 

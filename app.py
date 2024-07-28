@@ -44,10 +44,11 @@ def generar_transcripcion(archivo_audio, progress_bar, status_text):
     progress_bar.progress(0)
     status_text.text("Transcribiendo audio...")
 
-    result = model.transcribe(archivo_audio)
-    
+    result = model.transcribe(archivo_audio, verbose=True)
     total_segments = len(result['segments'])
-    for i, _ in enumerate(result['segments']):
+
+    for i, segment in enumerate(result['segments']):
+        # Simulate segment processing
         progress_bar.progress((i + 1) / total_segments)
         status_text.text(f"Transcribiendo: {((i + 1) / total_segments) * 100:.2f}%")
 
@@ -127,3 +128,4 @@ if st.button("Descargar y Transcribir Audio"):
             st.error("No se encontró el archivo de audio.")
     else:
         st.warning("Por favor, introduce una URL de YouTube válida.")
+

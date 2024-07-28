@@ -65,6 +65,10 @@ if st.button("Descargar Audio"):
         # Extraer el audio
         extraer_audio(url)
 
+        # Verificar el directorio de trabajo actual
+        current_directory = os.getcwd()
+        st.write(f"Directorio de trabajo actual: {current_directory}")
+
         # Verificar que el archivo de audio se haya descargado
         st.write("Verificando archivos en el directorio actual...")
         archivos = os.listdir()
@@ -85,6 +89,15 @@ if st.button("Descargar Audio"):
             st.write(f"Moviendo archivo {audio_file} a {destino_audio}...")
             shutil.move(audio_file, destino_audio)
             st.success(f"Archivo de audio movido a {destino_audio}")
+
+            # Crear un enlace de descarga
+            with open(destino_audio, "rb") as file:
+                btn = st.download_button(
+                    label="Descargar archivo de audio",
+                    data=file,
+                    file_name=os.path.basename(destino_audio),
+                    mime="audio/mpeg"
+                )
         else:
             st.error("No se encontró el archivo de audio.")
     else:

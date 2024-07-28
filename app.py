@@ -5,7 +5,7 @@ import os
 import shutil
 
 # Funciones
-def extraer_audio(url):
+def extraer_audio(url, progress_bar):
     """Extrae el audio de un video de YouTube y lo convierte a MP3."""
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -14,7 +14,7 @@ def extraer_audio(url):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'progress_hooks': [download_progress_hook],  # Hook para el progreso
+        'progress_hooks': [lambda d: download_progress_hook(d, progress_bar)],  # Hook para el progreso
         'verbose': True,   # Muestra información detallada del proceso
     }
 
@@ -25,11 +25,17 @@ def extraer_audio(url):
     except yt_dlp.utils.DownloadError as e:
         st.error(f"Error al extraer el audio: {e}")
 
-def download_progress_hook(d):
+def download_progress_hook(d, progress_bar):
     """Función hook para monitorizar el progreso de descarga."""
     if d['status'] == 'downloading':
+        total_bytes = d.get('total_bytes', 0)
+        downloaded_bytes = d.get('downloaded_bytes', 0)
+        if total_bytes > 0:
+            progress = downloaded_bytes / total_bytes
+            progress_bar.progress(progress)
         st.write(f"Descargando: {d['_percent_str']} - Velocidad: {d['_speed_str']} - Tiempo restante: {d['_eta_str']}")
     elif d['status'] == 'finished':
+        progress_bar.progress(1.0)
         st.write(f"Descarga completada, archivo guardado en: {d['filename']}")
     elif d['status'] == 'error':
         st.error("Error durante la descarga")
@@ -62,8 +68,9 @@ url = st.text_input("Introduce la URL del video de YouTube:")
 if st.button("Descargar Audio"):
     if url:
         st.write(f"Procesando URL: {url}")
+        progress_bar = st.progress(0)
         # Extraer el audio
-        extraer_audio(url)
+        extraer_audio(url, progress_bar)
 
         # Verificar el directorio de trabajo actual
         current_directory = os.getcwd()
@@ -102,3 +109,4 @@ if st.button("Descargar Audio"):
             st.error("No se encontró el archivo de audio.")
     else:
         st.warning("Por favor, introduce una URL de YouTube válida.")
+

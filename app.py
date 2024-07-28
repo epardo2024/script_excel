@@ -1,11 +1,13 @@
 
 import streamlit as st
 import yt_dlp
+import whisper
 import os
 import shutil
+from tqdm import tqdm
 
 # Funciones
-def extraer_audio(url, progress_bar):
+def extraer_audio(url, progress_bar, status_text):
     """Extrae el audio de un video de YouTube y lo convierte a MP3."""
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -14,18 +16,17 @@ def extraer_audio(url, progress_bar):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'progress_hooks': [lambda d: download_progress_hook(d, progress_bar)],  # Hook para el progreso
-        'verbose': True,   # Muestra información detallada del proceso
+        'progress_hooks': [lambda d: download_progress_hook(d, progress_bar, status_text)],  # Hook para el progreso
+        'quiet': True,  # Desactiva la salida detallada de yt-dlp
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            st.info("Iniciando descarga...")
             ydl.download([url])
     except yt_dlp.utils.DownloadError as e:
         st.error(f"Error al extraer el audio: {e}")
 
-def download_progress_hook(d, progress_bar):
+def download_progress_hook(d, progress_bar, status_text):
     """Función hook para monitorizar el progreso de descarga."""
     if d['status'] == 'downloading':
         total_bytes = d.get('total_bytes', 0)
@@ -33,12 +34,23 @@ def download_progress_hook(d, progress_bar):
         if total_bytes > 0:
             progress = downloaded_bytes / total_bytes
             progress_bar.progress(progress)
-        st.write(f"Descargando: {d['_percent_str']} - Velocidad: {d['_speed_str']} - Tiempo restante: {d['_eta_str']}")
+            status_text.text(f"Descargando: {progress*100:.2f}%")
     elif d['status'] == 'finished':
         progress_bar.progress(1.0)
-        st.write(f"Descarga completada, archivo guardado en: {d['filename']}")
-    elif d['status'] == 'error':
-        st.error("Error durante la descarga")
+        status_text.text("Descarga completada")
+
+def generar_transcripcion(archivo_audio, progress_bar, status_text):
+    """Genera la transcripción de un archivo de audio usando Whisper."""
+    model = whisper.load_model("base")
+    progress_bar.progress(0)
+    status_text.text("Transcribiendo audio...")
+
+    result = model.transcribe(archivo_audio, verbose=True)
+    
+    for i, _ in enumerate(tqdm(result['segments'], desc="Transcribiendo", ncols=80)):
+        progress_bar.progress((i + 1) / len(result['segments']))
+
+    return result['text']
 
 def obtener_nombre_disponible(ruta):
     """Devuelve un nombre de archivo disponible añadiendo un sufijo numérico si es necesario."""
@@ -53,36 +65,30 @@ def obtener_nombre_disponible(ruta):
     return new_ruta
 
 # Configuración de la interfaz de Streamlit
-st.title("Descargar Audio de YouTube")
+st.title("Descargar y Transcribir Audio de YouTube")
 
 # Ruta de la carpeta local donde se guardarán los archivos
 carpeta_local = './audios'
+carpeta_transcripciones = './transcripciones'
 
-# Crear la carpeta si no existe
-if not os.path.exists(carpeta_local):
-    os.makedirs(carpeta_local)
+# Crear las carpetas si no existen
+os.makedirs(carpeta_local, exist_ok=True)
+os.makedirs(carpeta_transcripciones, exist_ok=True)
 
 # Solicitar la URL del video
 url = st.text_input("Introduce la URL del video de YouTube:")
 
-if st.button("Descargar Audio"):
+if st.button("Descargar y Transcribir Audio"):
     if url:
         st.write(f"Procesando URL: {url}")
         progress_bar = st.progress(0)
+        status_text = st.empty()
+        
         # Extraer el audio
-        extraer_audio(url, progress_bar)
-
-        # Verificar el directorio de trabajo actual
-        current_directory = os.getcwd()
-        st.write(f"Directorio de trabajo actual: {current_directory}")
+        extraer_audio(url, progress_bar, status_text)
 
         # Verificar que el archivo de audio se haya descargado
-        st.write("Verificando archivos en el directorio actual...")
         archivos = os.listdir()
-        for file in archivos:
-            st.write(file)
-
-        # Encontrar el archivo de audio descargado
         audio_file = None
         for file in archivos:
             if file.endswith(".mp3"):
@@ -93,20 +99,30 @@ if st.button("Descargar Audio"):
         if audio_file:
             destino_audio = os.path.join(carpeta_local, audio_file)
             destino_audio = obtener_nombre_disponible(destino_audio)
-            st.write(f"Moviendo archivo {audio_file} a {destino_audio}...")
             shutil.move(audio_file, destino_audio)
             st.success(f"Archivo de audio movido a {destino_audio}")
 
-            # Crear un enlace de descarga
-            with open(destino_audio, "rb") as file:
+            # Generar la transcripción
+            st.write("Generando transcripción...")
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            transcripcion = generar_transcripcion(destino_audio, progress_bar, status_text)
+
+            # Guardar la transcripción en un archivo de texto
+            archivo_salida = os.path.join(carpeta_transcripciones, os.path.splitext(audio_file)[0] + ".txt")
+            with open(archivo_salida, 'w') as file:
+                file.write(transcripcion)
+            st.success(f"Transcripción guardada en {archivo_salida}")
+
+            # Crear un enlace de descarga para la transcripción
+            with open(archivo_salida, "rb") as file:
                 btn = st.download_button(
-                    label="Descargar archivo de audio",
+                    label="Descargar transcripción",
                     data=file,
-                    file_name=os.path.basename(destino_audio),
-                    mime="audio/mpeg"
+                    file_name=os.path.basename(archivo_salida),
+                    mime="text/plain"
                 )
         else:
             st.error("No se encontró el archivo de audio.")
     else:
         st.warning("Por favor, introduce una URL de YouTube válida.")
-

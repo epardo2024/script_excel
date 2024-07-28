@@ -44,15 +44,18 @@ def generar_transcripcion(archivo_audio, progress_bar, status_text):
     progress_bar.progress(0)
     status_text.text("Transcribiendo audio...")
 
+    # Dividir el archivo de audio en segmentos y transcribir cada uno
+    transcripcion = ""
     result = model.transcribe(archivo_audio, verbose=True)
+
     total_segments = len(result['segments'])
-
     for i, segment in enumerate(result['segments']):
-        # Simulate segment processing
-        progress_bar.progress((i + 1) / total_segments)
-        status_text.text(f"Transcribiendo: {((i + 1) / total_segments) * 100:.2f}%")
+        transcripcion += segment['text'] + " "
+        progress = (i + 1) / total_segments
+        progress_bar.progress(progress)
+        status_text.text(f"Transcribiendo: {progress*100:.2f}% completado")
 
-    return result['text']
+    return transcripcion
 
 def obtener_nombre_disponible(ruta):
     """Devuelve un nombre de archivo disponible añadiendo un sufijo numérico si es necesario."""

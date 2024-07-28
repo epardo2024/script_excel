@@ -5,7 +5,7 @@ import os
 import shutil
 
 # Funciones
-def extraer_audio(url, progress_bar):
+def extraer_audio(url, progress_bar, status_text):
     """Extrae el audio de un video de YouTube y lo convierte a MP3."""
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -14,18 +14,17 @@ def extraer_audio(url, progress_bar):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'progress_hooks': [lambda d: download_progress_hook(d, progress_bar)],  # Hook para el progreso
-        'verbose': True,   # Muestra información detallada del proceso
+        'progress_hooks': [lambda d: download_progress_hook(d, progress_bar, status_text)],  # Hook para el progreso
+        'quiet': True,  # Desactiva la salida detallada de yt-dlp
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            st.info("Iniciando descarga...")
             ydl.download([url])
     except yt_dlp.utils.DownloadError as e:
         st.error(f"Error al extraer el audio: {e}")
 
-def download_progress_hook(d, progress_bar):
+def download_progress_hook(d, progress_bar, status_text):
     """Función hook para monitorizar el progreso de descarga."""
     if d['status'] == 'downloading':
         total_bytes = d.get('total_bytes', 0)
@@ -33,12 +32,10 @@ def download_progress_hook(d, progress_bar):
         if total_bytes > 0:
             progress = downloaded_bytes / total_bytes
             progress_bar.progress(progress)
-        st.write(f"Descargando: {d['_percent_str']} - Velocidad: {d['_speed_str']} - Tiempo restante: {d['_eta_str']}")
+            status_text.text(f"Descargando: {progress*100:.2f}%")
     elif d['status'] == 'finished':
         progress_bar.progress(1.0)
-        st.write(f"Descarga completada, archivo guardado en: {d['filename']}")
-    elif d['status'] == 'error':
-        st.error("Error durante la descarga")
+        status_text.text("Descarga completada")
 
 def obtener_nombre_disponible(ruta):
     """Devuelve un nombre de archivo disponible añadiendo un sufijo numérico si es necesario."""
@@ -69,20 +66,12 @@ if st.button("Descargar Audio"):
     if url:
         st.write(f"Procesando URL: {url}")
         progress_bar = st.progress(0)
+        status_text = st.empty()
         # Extraer el audio
-        extraer_audio(url, progress_bar)
-
-        # Verificar el directorio de trabajo actual
-        current_directory = os.getcwd()
-        st.write(f"Directorio de trabajo actual: {current_directory}")
+        extraer_audio(url, progress_bar, status_text)
 
         # Verificar que el archivo de audio se haya descargado
-        st.write("Verificando archivos en el directorio actual...")
         archivos = os.listdir()
-        for file in archivos:
-            st.write(file)
-
-        # Encontrar el archivo de audio descargado
         audio_file = None
         for file in archivos:
             if file.endswith(".mp3"):
@@ -93,7 +82,6 @@ if st.button("Descargar Audio"):
         if audio_file:
             destino_audio = os.path.join(carpeta_local, audio_file)
             destino_audio = obtener_nombre_disponible(destino_audio)
-            st.write(f"Moviendo archivo {audio_file} a {destino_audio}...")
             shutil.move(audio_file, destino_audio)
             st.success(f"Archivo de audio movido a {destino_audio}")
 
@@ -109,4 +97,5 @@ if st.button("Descargar Audio"):
             st.error("No se encontró el archivo de audio.")
     else:
         st.warning("Por favor, introduce una URL de YouTube válida.")
+
 
